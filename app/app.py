@@ -1,4 +1,4 @@
-from fastapi import FastAPI,Form,File,UploadFile,Depends
+from fastapi import FastAPI,Form,File,UploadFile,Depends,HTTPException
 from app.db import Post,create_db_and_tables,get_async_session
 from contextlib import asynccontextmanager
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -86,3 +86,23 @@ async def get_feed(
         )
 
     return { "posts" : posts_data}
+
+
+@app.delete('/post/{post_id}')
+async def delete_post(post_id : str, session : AsyncSession = Depends(get_async_session)):
+    try:
+        post_uuid = uuid.UUID(post_id)
+
+        result = await session.execute(select(Post).where(Post.id == post_uuid))
+        post = result.scalars().first()
+
+        if not post :
+            raise  HTTPException(status_code=404, detail="Post Not Found !")
+        
+        await session.delete(post)
+        await session.commit()
+
+        return {"success": True, "message": "Post Deleted Successfully !"}
+
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
